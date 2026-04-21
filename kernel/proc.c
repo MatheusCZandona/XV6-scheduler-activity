@@ -124,7 +124,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
-
+  p->class = 0; //define class (trabalho)
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -257,7 +257,7 @@ growproc(int n)
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int
-kfork(void)
+kfork(int class) //parameter (trabalho)
 {
   int i, pid;
   struct proc *np;
@@ -299,6 +299,7 @@ kfork(void)
   release(&wait_lock);
 
   acquire(&np->lock);
+  np->class = class; //set class (trabalho)
   np->state = RUNNABLE;
   release(&np->lock);
 
@@ -421,46 +422,82 @@ kwait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
-void
-scheduler(void)
-{
-  struct proc *p;
-  struct cpu *c = mycpu();
 
-  c->proc = 0;
-  for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
-    intr_on();
-    intr_off();
+static unsigned int rand_seed = 1;
 
-    int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
-      }
-      release(&p->lock);
-    }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
-      asm volatile("wfi");
-    }
-  }
+void srand(unsigned int seed) {
+    if (seed == 0)
+        seed = 1;
+    rand_seed = seed;
 }
+
+int rand(void) {
+    rand_seed = rand_seed * 1103515245 + 12345;
+    return (rand_seed >> 16) & 0x7fff;
+}
+
+int sort_class(void) {
+    int r = rand() % 12;
+
+    if (r < 6)
+        return 0;
+    else if (r < 9)
+        return 1;
+    else if (r < 11)
+        return 2;
+    else
+        return 3;
+}
+
+static int last_index_class[NUMCLASS];
+
+void scheduler(void) {
+    struct proc* p;
+    struct cpu* c = mycpu();
+
+    c->proc = 0;
+    for (;;) {
+        // The most recent process to run may have had interrupts
+        // turned off; enable them to avoid a deadlock if all
+        // processes are waiting. Then turn them back off
+        // to avoid a possible race between an interrupt
+        // and wfi.
+        intr_on();
+        intr_off();
+
+        int class = sort_class();
+        int found = 0;
+        for (int i = 0; i < NPROC; i++) {
+            int idx = (last_index_class[class] + i) % NPROC;
+            p = &proc[idx];
+            acquire(&p->lock);
+
+            if (p->state == RUNNABLE && p->class == class) {
+                // Switch to chosen process.  It is the process's job
+                // to release its lock and then reacquire it
+                // before jumping back to us.
+                printf("class running: %d\n", p->class);
+                p->state = RUNNING;
+                c->proc = p;
+                swtch(&c->context, &p->context);
+
+                // Process is done running for now.
+                // It should have changed its p->state before coming back.
+                c->proc = 0;
+                found = 1;
+                last_index_class[class] = (idx + 1) % NPROC;
+                release(&p->lock);
+                break;
+            }
+            release(&p->lock);
+        }
+        if (found == 0) {
+            // nothing to run; stop running on this core until an interrupt.
+            continue;  // sort another class (trabalho)
+        }
+    }
+}
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -669,8 +706,8 @@ procdump(void)
   [UNUSED]    "unused",
   [USED]      "used",
   [SLEEPING]  "sleep ",
-  [RUNNABLE]  "runble",
-  [RUNNING]   "run   ",
+  [RUNNABLE]  "runnable",
+  [RUNNING]   "running   ",
   [ZOMBIE]    "zombie"
   };
   struct proc *p;
@@ -684,7 +721,7 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    printf("%d %s %s", p->pid, state, p->name);
+    printf("%d %s %s %d", p->pid, state, p->name, p->class); //now ctrl+p prints the class
     printf("\n");
   }
 }

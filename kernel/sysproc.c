@@ -25,7 +25,9 @@ sys_getpid(void)
 uint64
 sys_fork(void)
 {
-  return kfork();
+  int class;
+  argint(0, &class); //(trabalho)
+  return kfork(class);
 }
 
 uint64
