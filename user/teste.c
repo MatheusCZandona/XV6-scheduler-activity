@@ -34,7 +34,6 @@ int main(int argc, char* argv[]) {
     }
 
     class %= 4;
-    
     int pid = fork(class);
 
     if (pid == 0) {

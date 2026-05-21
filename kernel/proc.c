@@ -14,6 +14,7 @@ struct proc *initproc;
 
 int nextpid = 1;
 struct spinlock pid_lock;
+int total_scheduled = 0;  // total de vezes que qualquer processo foi escalonado (trabalho)
 
 extern void forkret(void);
 static void freeproc(struct proc *p);
@@ -168,6 +169,7 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->scheduled_count = 0;  // reset contador (trabalho)
   p->state = UNUSED;
 }
 
@@ -332,6 +334,12 @@ kexit(int status)
   if(p == initproc)
     panic("init exiting");
 
+  int count = p->scheduled_count;
+  int total = total_scheduled;
+  int pct = (total > 0) ? (count * 10000 / total) : 0;
+  printf("[sched] PID %d (class %d, \"%s\") saindo: escalonado %d vezes | %d.%d%% do total (%d)\n",
+       p->pid, p->class, p->name, count, pct / 100, pct % 100, total);
+
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
     if(p->ofile[fd]){
@@ -478,6 +486,8 @@ void scheduler(void) {
                 // before jumping back to us.
                 //printf("class running: %d\n", p->class);
                 p->state = RUNNING;
+                p->scheduled_count++;   // conta escalonamento (trabalho)
+                total_scheduled++;      // conta global (trabalho)
                 c->proc = p;
                 swtch(&c->context, &p->context);
 
@@ -721,7 +731,29 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    printf("%d %s %s %d", p->pid, state, p->name, p->class); //now ctrl+p prints the class
-    printf("\n");
+    printf("%d %s %s %d\n", p->pid, state, p->name, p->class);
   }
+
+  // Agrupa escalonamentos por classe (trabalho)
+  int total = total_scheduled;
+  int class_count[NUMCLASS];
+  for(int i = 0; i < NUMCLASS; i++)
+    class_count[i] = 0;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state == UNUSED || p->state == USED)
+      continue;
+    if(p->class >= 0 && p->class < NUMCLASS)
+      class_count[p->class] += p->scheduled_count;
+  }
+
+  printf("\n--- Estatisticas por Classe (total: %d) ---\n", total);
+ printf("Classe\tEscalonado\tPorcentagem\n");
+printf("------\t----------\t-----------\n");
+  for(int i = 0; i < NUMCLASS; i++){
+    int pct = (total > 0) ? (class_count[i] * 10000 / total) : 0;
+    printf("%d\t%d\t\t%d.%d%%\n",
+           i, class_count[i], pct / 100, pct % 100);
+  }
+  printf("-------------------------------------------\n");
 }
