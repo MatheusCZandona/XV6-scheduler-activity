@@ -26,7 +26,7 @@ uint64
 sys_fork(void)
 {
   int class;
-  argint(0, &class); //(trabalho)
+  argint(0, &class); //passar parametro na chamada do programa(trabalho)
   return kfork(class);
 }
 

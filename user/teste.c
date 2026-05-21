@@ -2,7 +2,7 @@
 #include "kernel/types.h"
 #include "user/user.h"
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) { //(trabalho)
     
     if(strlen(argv[1]) == 0){
         printf("invalid argument\n");

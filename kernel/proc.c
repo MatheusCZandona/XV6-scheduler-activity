@@ -10,6 +10,12 @@ struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
+int class_count[NUMCLASS]; //para contar as classes  
+void init_stats(){ //inicia vetor (trabalho)
+  for(int i = 0; i < NUMCLASS; i++)
+    class_count[i] = 0;
+}
+
 struct proc *initproc;
 
 int nextpid = 1;
@@ -169,7 +175,6 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
-  p->scheduled_count = 0;  // reset contador (trabalho)
   p->state = UNUSED;
 }
 
@@ -334,12 +339,6 @@ kexit(int status)
   if(p == initproc)
     panic("init exiting");
 
-  int count = p->scheduled_count;
-  int total = total_scheduled;
-  int pct = (total > 0) ? (count * 10000 / total) : 0;
-  printf("[sched] PID %d (class %d, \"%s\") saindo: escalonado %d vezes | %d.%d%% do total (%d)\n",
-       p->pid, p->class, p->name, count, pct / 100, pct % 100, total);
-
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
     if(p->ofile[fd]){
@@ -431,6 +430,7 @@ kwait(uint64 addr)
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
 
+//para gerar numeros aleatorios (trabalho)
 static unsigned int rand_seed = 1;
 
 void srand(unsigned int seed) {
@@ -457,9 +457,10 @@ int sort_class(void) {
         return 3;
 }
 
-static int last_index_class[NUMCLASS];
+static int last_index_class[NUMCLASS]; //vetor para fazer round robin por classe (trabalho)
 
 void scheduler(void) {
+    init_stats(); //inicializa o vetor de contagem da classe dos processos (trabalho)
     struct proc* p;
     struct cpu* c = mycpu();
 
@@ -473,10 +474,10 @@ void scheduler(void) {
         intr_on();
         intr_off();
 
-        int class = sort_class();
+        int class = sort_class(); // escolhe classe (trabalho)
         int found = 0;
         for (int i = 0; i < NPROC; i++) {
-            int idx = (last_index_class[class] + i) % NPROC;
+            int idx = (last_index_class[class] + i) % NPROC; // escolhe o indice de acordo com onde a classe parou (trabalho)
             p = &proc[idx];
             acquire(&p->lock);
 
@@ -486,7 +487,7 @@ void scheduler(void) {
                 // before jumping back to us.
                 //printf("class running: %d\n", p->class);
                 p->state = RUNNING;
-                p->scheduled_count++;   // conta escalonamento (trabalho)
+                class_count[p->class]++;   // conta escalonamento da classe (trabalho)
                 total_scheduled++;      // conta global (trabalho)
                 c->proc = p;
                 swtch(&c->context, &p->context);
@@ -495,7 +496,7 @@ void scheduler(void) {
                 // It should have changed its p->state before coming back.
                 c->proc = 0;
                 found = 1;
-                last_index_class[class] = (idx + 1) % NPROC;
+                last_index_class[class] = (idx + 1) % NPROC; // guarda a ultima posicao da classe (trabalho)
                 release(&p->lock);
                 break;
             }
@@ -734,22 +735,11 @@ procdump(void)
     printf("%d %s %s %d\n", p->pid, state, p->name, p->class);
   }
 
-  // Agrupa escalonamentos por classe (trabalho)
+  // agrupa escalonamentos por classe para estatistica(trabalho)
   int total = total_scheduled;
-  int class_count[NUMCLASS];
-  for(int i = 0; i < NUMCLASS; i++)
-    class_count[i] = 0;
-
-  for(p = proc; p < &proc[NPROC]; p++){
-    if(p->state == UNUSED || p->state == USED)
-      continue;
-    if(p->class >= 0 && p->class < NUMCLASS)
-      class_count[p->class] += p->scheduled_count;
-  }
-
   printf("\n--- Estatisticas por Classe (total: %d) ---\n", total);
- printf("Classe\tEscalonado\tPorcentagem\n");
-printf("------\t----------\t-----------\n");
+  printf("Classe\tEscalonado\tPorcentagem\n");
+  printf("------\t----------\t-----------\n");
   for(int i = 0; i < NUMCLASS; i++){
     int pct = (total > 0) ? (class_count[i] * 10000 / total) : 0;
     printf("%d\t%d\t\t%d.%d%%\n",
