@@ -430,37 +430,43 @@ kwait(uint64 addr)
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
 
-//para gerar numeros aleatorios (trabalho)
-static unsigned int rand_seed = 1;
+static int tickets_classes[NUMCLASS]; //bilhetes p classe (trabalho)
+static uint64 classes_stride[NUMCLASS]; // passada atual p classe (trabalho)
 
-void srand(unsigned int seed) {
-    if (seed == 0)
-        seed = 1;
-    rand_seed = seed;
+void init_stride(){
+  for(int i = 0; i < NUMCLASS;i++){
+    classes_stride[i] = 0;
+  }
 }
 
-int rand(void) {
-    rand_seed = rand_seed * 1103515245 + 12345;
-    return (rand_seed >> 16) & 0x7fff;
-}
+//criterio de desempate: a classe com menor numero (trabalho)
+int sort_class(){
+  //alocacao estatica de bilhetes (trabalho)
+  tickets_classes[0] = 10000/500;
+  tickets_classes[1] = 10000/250;
+  tickets_classes[2] = 10000/125;
+  tickets_classes[3] = 10000/64;
 
-int sort_class(void) {
-    int r = rand() % 12;
+  uint64 menor = 0x3f3f3f3f3f3f3f3f;
+  for(int i = 0; i < NUMCLASS; i++){ // pega menor passo (trabalho)
+    if(classes_stride[i] < menor)menor = classes_stride[i];
+  }
 
-    if (r < 6)
-        return 0;
-    else if (r < 9)
-        return 1;
-    else if (r < 11)
-        return 2;
-    else
-        return 3;
+  for(int i = 0; i < NUMCLASS; i++){
+    if(classes_stride[i] == menor) {
+      classes_stride[i] += tickets_classes[i]; //atualiza passo (trabalho)
+      return i; //retorna classe com menor passo (trabalho)
+    }
+  }
+
+  return 0; //caso der algum problema retorna classe 0
 }
 
 static int last_index_class[NUMCLASS]; //vetor para fazer round robin por classe (trabalho)
 
 void scheduler(void) {
     init_stats(); //inicializa o vetor de contagem da classe dos processos (trabalho)
+    init_stride(); // inicializa o vetor da passada (trabalho)
     struct proc* p;
     struct cpu* c = mycpu();
 
