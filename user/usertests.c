@@ -170,7 +170,7 @@ copyinstr2(char *s)
     exit(1);
   }
 
-  int pid = fork(0);
+  int pid = fork(1000);
   if(pid < 0){
     printf("fork failed\n");
     exit(1);
@@ -376,7 +376,7 @@ truncate3(char *s)
 
   close(open("truncfile", O_CREATE|O_TRUNC|O_WRONLY));
   
-  pid = fork(0);
+  pid = fork(1000);
   if(pid < 0){
     printf("%s: fork failed\n", s);
     exit(1);
@@ -451,7 +451,7 @@ exitiputtest(char *s)
 {
   int pid, xstatus;
 
-  pid = fork(0);
+  pid = fork(1000);
   if(pid < 0){
     printf("%s: fork failed\n", s);
     exit(1);
@@ -495,7 +495,7 @@ openiputtest(char *s)
     printf("%s: mkdir oidir failed\n", s);
     exit(1);
   }
-  pid = fork(0);
+  pid = fork(1000);
   if(pid < 0){
     printf("%s: fork failed\n", s);
     exit(1);
@@ -686,7 +686,7 @@ exectest(char *s)
   char buf[3];
 
   unlink("echo-ok");
-  pid = fork(0);
+  pid = fork(1000);
   if(pid < 0) {
      printf("%s: fork failed\n", s);
      exit(1);
@@ -746,7 +746,7 @@ pipe1(char *s)
     printf("%s: pipe() failed\n", s);
     exit(1);
   }
-  pid = fork(0);
+  pid = fork(1000);
   seq = 0;
   if(pid == 0){
     close(fds[0]);
@@ -783,7 +783,7 @@ pipe1(char *s)
     wait(&xstatus);
     exit(xstatus);
   } else {
-    printf("%s: fork(0) failed\n", s);
+    printf("%s: fork(1000) failed\n", s);
     exit(1);
   }
 }
@@ -796,7 +796,7 @@ killstatus(char *s)
   int xst;
   
   for(int i = 0; i < 100; i++){
-    int pid1 = fork(0);
+    int pid1 = fork(1000);
     if(pid1 < 0){
       printf("%s: fork failed\n", s);
       exit(1);
@@ -825,7 +825,7 @@ preempt(char *s)
   int pid1, pid2, pid3;
   int pfds[2];
 
-  pid1 = fork(0);
+  pid1 = fork(1000);
   if(pid1 < 0) {
     printf("%s: fork failed", s);
     exit(1);
@@ -834,7 +834,7 @@ preempt(char *s)
     for(;;)
       ;
 
-  pid2 = fork(0);
+  pid2 = fork(1000);
   if(pid2 < 0) {
     printf("%s: fork failed\n", s);
     exit(1);
@@ -844,7 +844,7 @@ preempt(char *s)
       ;
 
   pipe(pfds);
-  pid3 = fork(0);
+  pid3 = fork(1000);
   if(pid3 < 0) {
      printf("%s: fork failed\n", s);
      exit(1);
@@ -881,7 +881,7 @@ exitwait(char *s)
   int i, pid;
 
   for(i = 0; i < 100; i++){
-    pid = fork(0);
+    pid = fork(1000);
     if(pid < 0){
       printf("%s: fork failed\n", s);
       exit(1);
@@ -910,7 +910,7 @@ reparent(char *s)
 {
   int master_pid = getpid();
   for(int i = 0; i < 200; i++){
-    int pid = fork(0);
+    int pid = fork(1000);
     if(pid < 0){
       printf("%s: fork failed\n", s);
       exit(1);
@@ -921,7 +921,7 @@ reparent(char *s)
         exit(1);
       }
     } else {
-      int pid2 = fork(0);
+      int pid2 = fork(1000);
       if(pid2 < 0){
         kill(master_pid);
         exit(1);
@@ -937,7 +937,7 @@ void
 twochildren(char *s)
 {
   for(int i = 0; i < 1000; i++){
-    int pid1 = fork(0);
+    int pid1 = fork(1000);
     if(pid1 < 0){
       printf("%s: fork failed\n", s);
       exit(1);
@@ -945,7 +945,7 @@ twochildren(char *s)
     if(pid1 == 0){
       exit(0);
     } else {
-      int pid2 = fork(0);
+      int pid2 = fork(1000);
       if(pid2 < 0){
         printf("%s: fork failed\n", s);
         exit(1);
@@ -967,14 +967,14 @@ forkfork(char *s)
   enum { N=2 };
   
   for(int i = 0; i < N; i++){
-    int pid = fork(0);
+    int pid = fork(1000);
     if(pid < 0){
       printf("%s: fork failed", s);
       exit(1);
     }
     if(pid == 0){
       for(int j = 0; j < 200; j++){
-        int pid1 = fork(0);
+        int pid1 = fork(1000);
         if(pid1 < 0){
           exit(1);
         }
@@ -1002,7 +1002,7 @@ forkforkfork(char *s)
 {
   unlink("stopforking");
 
-  int pid = fork(0);
+  int pid = fork(1000);
   if(pid < 0){
     printf("%s: fork failed", s);
     exit(1);
@@ -1013,7 +1013,7 @@ forkforkfork(char *s)
       if(fd >= 0){
         exit(0);
       }
-      if(fork(0) < 0){
+      if(fork(1000) < 0){
         close(open("stopforking", O_CREATE|O_RDWR));
       }
     }
@@ -1036,14 +1036,14 @@ void
 reparent2(char *s)
 {
   for(int i = 0; i < 800; i++){
-    int pid1 = fork(0);
+    int pid1 = fork(1000);
     if(pid1 < 0){
       printf("fork failed\n");
       exit(1);
     }
     if(pid1 == 0){
-      fork(0);
-      fork(0);
+      fork(1000);
+      fork(1000);
       exit(0);
     }
     wait(0);
@@ -1059,7 +1059,7 @@ mem(char *s)
   void *m1, *m2;
   int pid;
 
-  if((pid = fork(0)) == 0){
+  if((pid = fork(1000)) == 0){
     m1 = 0;
     while((m2 = malloc(10001)) != 0){
       *(char**)m2 = m1;
@@ -1106,7 +1106,7 @@ sharedfd(char *s)
     printf("%s: cannot open sharedfd for writing", s);
     exit(1);
   }
-  pid = fork(0);
+  pid = fork(1000);
   memset(buf, pid==0?'c':'p', sizeof(buf));
   for(i = 0; i < N; i++){
     if(write(fd, buf, sizeof(buf)) != sizeof(buf)){
@@ -1162,7 +1162,7 @@ fourfiles(char *s)
     fname = names[pi];
     unlink(fname);
 
-    pid = fork(0);
+    pid = fork(1000);
     if(pid < 0){
       printf("%s: fork failed\n", s);
       exit(1);
@@ -1224,7 +1224,7 @@ createdelete(char *s)
   char name[32];
 
   for(pi = 0; pi < NCHILD; pi++){
-    pid = fork(0);
+    pid = fork(1000);
     if(pid < 0){
       printf("%s: fork failed\n", s);
       exit(1);
@@ -1409,7 +1409,7 @@ concreate(char *s)
   for(i = 0; i < N; i++){
     file[1] = '0' + i;
     unlink(file);
-    pid = fork(0);
+    pid = fork(1000);
     if(pid && (i % 3) == 1){
       link("C0", file);
     } else if(pid == 0 && (i % 5) == 1){
@@ -1461,7 +1461,7 @@ concreate(char *s)
 
   for(i = 0; i < N; i++){
     file[1] = '0' + i;
-    pid = fork(0);
+    pid = fork(1000);
     if(pid < 0){
       printf("%s: fork failed\n", s);
       exit(1);
@@ -1497,7 +1497,7 @@ linkunlink(char *s)
   int pid, i;
 
   unlink("x");
-  pid = fork(0);
+  pid = fork(1000);
   if(pid < 0){
     printf("%s: fork failed\n", s);
     exit(1);
@@ -1966,7 +1966,7 @@ forktest(char *s)
   int n, pid;
 
   for(n=0; n<N; n++){
-    pid = fork(0);
+    pid = fork(1000);
     if(pid < 0)
       break;
     if(pid == 0)
@@ -2004,7 +2004,7 @@ sbrkbasic(char *s)
   char *c, *a, *b;
 
   // does sbrk() return the expected failure value?
-  pid = fork(0);
+  pid = fork(1000);
   if(pid < 0){
     printf("fork failed in sbrkbasic\n");
     exit(1);
@@ -2043,7 +2043,7 @@ sbrkbasic(char *s)
     *b = 1;
     a = b + 1;
   }
-  pid = fork(0);
+  pid = fork(1000);
   if(pid < 0){
     printf("%s: sbrk test fork failed\n", s);
     exit(1);
@@ -2123,7 +2123,7 @@ kernmem(char *s)
   int pid;
 
   for(a = (char*)(KERNBASE); a < (char*) (KERNBASE+2000000); a += 50000){
-    pid = fork(0);
+    pid = fork(1000);
     if(pid < 0){
       printf("%s: fork failed\n", s);
       exit(1);
@@ -2146,7 +2146,7 @@ MAXVAplus(char *s)
   volatile uint64 a = MAXVA;
   for( ; a != 0; a <<= 1){
     int pid;
-    pid = fork(0);
+    pid = fork(1000);
     if(pid < 0){
       printf("%s: fork failed\n", s);
       exit(1);
@@ -2183,7 +2183,7 @@ sbrkfail(char *s)
     exit(1);
   }
   for(i = 0; i < sizeof(pids)/sizeof(pids[0]); i++){
-    if((pids[i] = fork(0)) == 0){
+    if((pids[i] = fork(1000)) == 0){
       // allocate a lot of memory
       if (sbrk(BIG - (uint64)sbrk(0)) ==  (char*)SBRK_ERROR)
         write(fds[1], "0", 1);
@@ -2217,7 +2217,7 @@ sbrkfail(char *s)
   }
 
   // test running fork with the above allocated page 
-  pid = fork(0);
+  pid = fork(1000);
   if(pid < 0){
     printf("%s: fork failed\n", s);
     exit(1);
@@ -2305,7 +2305,7 @@ bigargtest(char *s)
   int pid, fd, xstatus;
 
   unlink("bigarg-ok");
-  pid = fork(0);
+  pid = fork(1000);
   if(pid == 0){
     static char *args[MAXARG];
     int i;
@@ -2410,7 +2410,7 @@ stacktest(char *s)
   int pid;
   int xstatus;
   
-  pid = fork(0);
+  pid = fork(1000);
   if(pid == 0) {
     char *sp = (char *) r_sp();
     sp -= USERSTACK*PGSIZE;
@@ -2439,7 +2439,7 @@ nowrite(char *s)
                      0xffffffffffffffff };
   
   for(int ai = 0; ai < sizeof(addrs)/sizeof(addrs[0]); ai++){
-    pid = fork(0);
+    pid = fork(1000);
     if(pid == 0) {
       volatile int *addr = (int *) addrs[ai];
       *addr = 10;
@@ -2479,7 +2479,7 @@ pgbug(char *s)
 void
 sbrkbugs(char *s)
 {
-  int pid = fork(0);
+  int pid = fork(1000);
   if(pid < 0){
     printf("fork failed\n");
     exit(1);
@@ -2495,7 +2495,7 @@ sbrkbugs(char *s)
   }
   wait(0);
 
-  pid = fork(0);
+  pid = fork(1000);
   if(pid < 0){
     printf("fork failed\n");
     exit(1);
@@ -2510,7 +2510,7 @@ sbrkbugs(char *s)
   }
   wait(0);
 
-  pid = fork(0);
+  pid = fork(1000);
   if(pid < 0){
     printf("fork failed\n");
     exit(1);
@@ -2634,7 +2634,7 @@ lazy_unmap(char *s)
     *(char **)i = i;
 
   for (i = prev_end + PGSIZE; i < new_end; i += PGSIZE * PGSIZE) {
-    pid = fork(0);
+    pid = fork(1000);
     if (pid < 0) {
       printf("error forking\n");
       exit(1);
@@ -2873,7 +2873,7 @@ manywrites(char *s)
   int howmany = 30; // increase to look for deadlock
   
   for(int ci = 0; ci < nchildren; ci++){
-    int pid = fork(0);
+    int pid = fork(1000);
     if(pid < 0){
       printf("fork failed\n");
       exit(1);
@@ -2962,7 +2962,7 @@ void
 execout(char *s)
 {
   for(int avail = 0; avail < 15; avail++){
-    int pid = fork(0);
+    int pid = fork(1000);
     if(pid < 0){
       printf("fork failed\n");
       exit(1);
@@ -3127,7 +3127,7 @@ run(void f(char *), char *s) {
   int xstatus;
 
   printf("test %s: ", s);
-  if((pid = fork(0)) < 0) {
+  if((pid = fork(1000)) < 0) {
     printf("runtest: fork error\n");
     exit(1);
   }

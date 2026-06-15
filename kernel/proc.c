@@ -10,10 +10,12 @@ struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
-int class_count[NUMCLASS]; //para contar as classes  
+static uint64 procs_stride[NPROC]; // passada atual p processo (trabalho)
+
+int proc_count[NPROC]; //para contar os processos 
 void init_stats(){ //inicia vetor (trabalho)
-  for(int i = 0; i < NUMCLASS; i++)
-    class_count[i] = 0;
+  for(int i = 0; i < NPROC; i++)
+    proc_count[i] = 0;
 }
 
 struct proc *initproc;
@@ -131,7 +133,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
-  p->class = 0; //define class (trabalho)
+  p->tickets = 1000; //define tickets (trabalho)
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -264,7 +266,7 @@ growproc(int n)
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int
-kfork(int class) //parameter (trabalho)
+kfork(int tickets) //parameter (trabalho)
 {
   int i, pid;
   struct proc *np;
@@ -306,7 +308,9 @@ kfork(int class) //parameter (trabalho)
   release(&wait_lock);
 
   acquire(&np->lock);
-  np->class = class; //set class (trabalho)
+  np->tickets = tickets; //set tickets (trabalho)
+  int idx = np - proc;
+  procs_stride[idx] = 0; //set stride (trabalho)
   np->state = RUNNABLE;
   release(&np->lock);
 
@@ -430,39 +434,36 @@ kwait(uint64 addr)
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
 
-static int tickets_classes[NUMCLASS]; //bilhetes p classe (trabalho)
-static uint64 classes_stride[NUMCLASS]; // passada atual p classe (trabalho)
 
 void init_stride(){
-  for(int i = 0; i < NUMCLASS;i++){
-    classes_stride[i] = 0;
+  for(int i = 0; i < NPROC;i++){
+    procs_stride[i] = -1;
   }
 }
 
 //criterio de desempate: a classe com menor numero (trabalho)
-int sort_class(){
-  //alocacao estatica de bilhetes (trabalho)
-  tickets_classes[0] = 10000/500;
-  tickets_classes[1] = 10000/250;
-  tickets_classes[2] = 10000/125;
-  tickets_classes[3] = 10000/64;
+int sort_proc(){
 
   uint64 menor = 0x3f3f3f3f3f3f3f3f;
-  for(int i = 0; i < NUMCLASS; i++){ // pega menor passo (trabalho)
-    if(classes_stride[i] < menor)menor = classes_stride[i];
+  for(int i = 0; i < NPROC; i++){ // pega menor passo (trabalho)
+    if(procs_stride[i] < menor && procs_stride[i] != -1)menor = procs_stride[i];
   }
 
-  for(int i = 0; i < NUMCLASS; i++){
-    if(classes_stride[i] == menor) {
-      classes_stride[i] += tickets_classes[i]; //atualiza passo (trabalho)
-      return i; //retorna classe com menor passo (trabalho)
+//desempate: processo com menor PID
+  struct proc* p;
+  for(int i = 0; i < NPROC; i++){
+    p = &proc[i];
+    acquire(&p->lock);
+    if(procs_stride[i] == menor && p->state == RUNNABLE) {
+      procs_stride[i] += DIVSTRIDE / p->tickets; //atualiza passo (trabalho)
+      release(&p->lock);
+      return i; //retorna pid do processo com menor passo (trabalho)
     }
+    release(&p->lock);
   }
 
-  return 0; //caso der algum problema retorna classe 0
+  return -1; //caso der algum problema retorna -1
 }
-
-static int last_index_class[NUMCLASS]; //vetor para fazer round robin por classe (trabalho)
 
 void scheduler(void) {
     init_stats(); //inicializa o vetor de contagem da classe dos processos (trabalho)
@@ -480,21 +481,20 @@ void scheduler(void) {
         intr_on();
         intr_off();
 
-        int class = sort_class(); // escolhe classe (trabalho)
+        int process = sort_proc(); // escolhe process (trabalho)
         int found = 0;
-        for (int i = 0; i < NPROC; i++) {
-            int idx = (last_index_class[class] + i) % NPROC; // escolhe o indice de acordo com onde a classe parou (trabalho)
-            p = &proc[idx];
+        if(process != -1){
+            p = &proc[process];
             acquire(&p->lock);
 
-            if (p->state == RUNNABLE && p->class == class) {
+            if (p->state == RUNNABLE) {
                 // Switch to chosen process.  It is the process's job
                 // to release its lock and then reacquire it
                 // before jumping back to us.
                 //printf("class running: %d\n", p->class);
                 p->state = RUNNING;
-                class_count[p->class]++;   // conta escalonamento da classe (trabalho)
-                total_scheduled++;      // conta global (trabalho)
+                proc_count[process]++;   // conta escalonamento do processo (trabalho)
+                total_scheduled++;     // conta global (trabalho)
                 c->proc = p;
                 swtch(&c->context, &p->context);
 
@@ -502,15 +502,13 @@ void scheduler(void) {
                 // It should have changed its p->state before coming back.
                 c->proc = 0;
                 found = 1;
-                last_index_class[class] = (idx + 1) % NPROC; // guarda a ultima posicao da classe (trabalho)
                 release(&p->lock);
-                break;
             }
             release(&p->lock);
         }
         if (found == 0) {
             // nothing to run; stop running on this core until an interrupt.
-            continue;  // sort another class (trabalho)
+            continue;  // sort another process (trabalho)
         }
     }
 }
@@ -738,18 +736,7 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    printf("%d %s %s %d\n", p->pid, state, p->name, p->class);
+    printf("%d %s %s %d\n", p->pid, state, p->name, p->tickets);
   }
 
-  // agrupa escalonamentos por classe para estatistica(trabalho)
-  int total = total_scheduled;
-  printf("\n--- Estatisticas por Classe (total: %d) ---\n", total);
-  printf("Classe\tEscalonado\tPorcentagem\n");
-  printf("------\t----------\t-----------\n");
-  for(int i = 0; i < NUMCLASS; i++){
-    int pct = (total > 0) ? (class_count[i] * 10000 / total) : 0;
-    printf("%d\t%d\t\t%d.%d%%\n",
-           i, class_count[i], pct / 100, pct % 100);
-  }
-  printf("-------------------------------------------\n");
 }

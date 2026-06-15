@@ -25,9 +25,9 @@ sys_getpid(void)
 uint64
 sys_fork(void)
 {
-  int class;
-  argint(0, &class); //passar parametro na chamada do programa(trabalho)
-  return kfork(class);
+  int tickets;
+  argint(0, &tickets); //passar parametro na chamada do programa(trabalho)
+  return kfork(tickets);
 }
 
 uint64

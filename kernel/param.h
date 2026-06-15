@@ -13,3 +13,4 @@
 #define MAXPATH      128   // maximum file path name
 #define USERSTACK    1     // user stack pages
 #define NUMCLASS     4     // number of classes(trabalho)
+#define DIVSTRIDE    10000 //constant value for stride(trabalho)
